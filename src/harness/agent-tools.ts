@@ -64,6 +64,8 @@ import { SANDBOX_CAPABILITY_TTL_MS } from "../auth/capability-token.ts";
 import { CRON_FIRE_NOTE_MAX_CHARS, UNATTENDED_ADMIN_GRANTS } from "../api/control-service.ts";
 import { utcMinute } from "../util/time.ts";
 
+const BACKGROUND_POLL_MAX_WAIT_SECONDS = 60;
+
 function describePublishAudience(a: PublishAudienceDescriptor | undefined): string {
   if (!a) return "Owned by you.";
   const note = a.note ? ` (note: ${a.note})` : "";
@@ -618,11 +620,13 @@ export function createAgentTools(ref: ToolContextRef, opts?: AgentToolsOptions):
           "Exact sandbox ID. Omit only when this scope has a stored default; otherwise select a target with sandbox list/create.",
       }),
     ),
-    purpose: Type.String({
+    purpose: Type.Optional(Type.String({
       description:
-        "A human-readable intent label, at most 4 words (e.g. 'Check Python version'). " +
-        "Describe the purpose, not the code. Required on every call; shown in tool activity and approval requests.",
-    }),
+        "Optional short human-readable intent label (e.g. 'Check Python version'). Describe the purpose, not the code; shown in tool activity and approval requests. If omitted, use description or 'Run command'.",
+    })),
+    description: Type.Optional(
+      Type.String({ description: "Compatibility alias for purpose when purpose is omitted." }),
+    ),
     timeout_seconds: Type.Optional(
       Type.Integer({
         minimum: 1,
@@ -880,8 +884,20 @@ export function createAgentTools(ref: ToolContextRef, opts?: AgentToolsOptions):
 
   const runCommand = (
     callId: string,
-    params: Parameters<typeof runScopedExecute>[1] & { background?: boolean; sandbox_id?: string },
-  ) => (params.background ? runBackgroundExecute(callId, params) : runScopedExecute(callId, params));
+    params: Parameters<typeof runScopedExecute>[1] & {
+      background?: boolean;
+      sandbox_id?: string;
+      description?: string;
+    },
+  ) => {
+    const normalized = {
+      ...params,
+      purpose: params.purpose?.trim() || params.description?.trim() || "Run command",
+    };
+    return normalized.background
+      ? runBackgroundExecute(callId, normalized)
+      : runScopedExecute(callId, normalized);
+  };
 
   let execute: ToolDefinition;
   if (reachExec) {
@@ -1956,13 +1972,6 @@ export function createAgentTools(ref: ToolContextRef, opts?: AgentToolsOptions):
           text("[error] execute background:true requires `command`."),
           true,
         );
-      if (!params.purpose?.trim())
-        return recordResult(
-          callId,
-          { tool: "execute", background: true, error: "start requires purpose" },
-          text("[error] execute background:true requires `purpose`: a short description of the job, about 5 words."),
-          true,
-        );
       const r = await tc.backgroundStart(params.command, {
         purpose: params.purpose,
         ...(params.timeout_seconds ? { ttlSeconds: params.timeout_seconds } : {}),
@@ -2083,8 +2092,7 @@ export function createAgentTools(ref: ToolContextRef, opts?: AgentToolsOptions):
       wait_seconds: Type.Optional(
         Type.Integer({
           minimum: 0,
-          maximum: 60,
-          description: "poll only: block up to this long for new output or exit, then answer (default 0).",
+          description: `poll only: requested wait in seconds, capped at ${BACKGROUND_POLL_MAX_WAIT_SECONDS}; return sooner on new output or exit (default 0).`,
         }),
       ),
       max_bytes: Type.Optional(
@@ -2130,7 +2138,9 @@ export function createAgentTools(ref: ToolContextRef, opts?: AgentToolsOptions):
             const r = await tc.backgroundPoll(params.process_id, {
               ...(params.since_cursor !== undefined ? { sinceCursor: params.since_cursor } : {}),
               ...(params.max_bytes !== undefined ? { maxBytes: params.max_bytes } : {}),
-              ...(params.wait_seconds !== undefined ? { waitSeconds: params.wait_seconds } : {}),
+              ...(params.wait_seconds !== undefined
+                ? { waitSeconds: Math.min(params.wait_seconds, BACKGROUND_POLL_MAX_WAIT_SECONDS) }
+                : {}),
             });
             const { chunks: _chunks, ...pollMeta } = r;
             return recordResult(
@@ -4507,7 +4517,7 @@ export function createAgentTools(ref: ToolContextRef, opts?: AgentToolsOptions):
         const operations = operationFields[tool.name];
         const fields = operations && Object.hasOwn(operations, action) ? operations[action] : undefined;
         let required: string[];
-        if (tool.name === "execute") required = ["command", "purpose"];
+        if (tool.name === "execute") required = ["command"];
         else if (tool.name === "sandbox") {
           required = ["purpose"];
           if (["set_default", "retire"].includes(action)) required.push("sandbox_id");

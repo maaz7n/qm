@@ -2054,11 +2054,11 @@ test("cron note rejects arguments exceeding the advertised cap before dispatch",
   const tc: ToolContext = {
     ...fakeToolContext(),
     async cronNote() {
-      return { ok: false, code: "bad_request", message: "the note is 401 chars — the cap is 400." };
+      return { ok: false, code: "bad_request", message: "the note is 2001 chars — the cap is 2000." };
     },
   };
   assert.match(
-    textOut(await call(tool("cron", tc), { action: "note", id: "cron-1", note: "x".repeat(401) })),
+    textOut(await call(tool("cron", tc), { action: "note", id: "cron-1", note: "x".repeat(2001) })),
     /\[error\] Invalid arguments for cron action note/,
   );
 });
@@ -2698,7 +2698,7 @@ test("execute and background dispatch every process action and preserves cursors
       timeout_seconds: 123,
       credentials: ["test-login"],
     },
-    { action: "poll", process_id: "bg-1", since_cursor: 7, wait_seconds: 2, max_bytes: 99 },
+    { action: "poll", process_id: "bg-1", since_cursor: 7, wait_seconds: 120, max_bytes: 99 },
     { action: "send_input", process_id: "bg-1", data: "yes\n" },
     { action: "stop", process_id: "bg-1", signal: "INT" },
     { action: "list" },
@@ -2729,7 +2729,7 @@ test("execute and background dispatch every process action and preserves cursors
         { purpose: "Run background tests", ttlSeconds: 123, sandboxId: "box-a", credentials: ["test-login"] },
       ],
     },
-    { method: "backgroundPoll", args: ["bg-1", { sinceCursor: 7, waitSeconds: 2, maxBytes: 99 }] },
+    { method: "backgroundPoll", args: ["bg-1", { sinceCursor: 7, waitSeconds: 60, maxBytes: 99 }] },
     { method: "backgroundWrite", args: ["bg-1", "yes\n"] },
     { method: "backgroundStop", args: ["bg-1", "INT"] },
     { method: "backgroundList", args: [] },

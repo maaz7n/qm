@@ -110,7 +110,7 @@ export interface CronRunsResult {
 export const CRON_PATCH_NOTHING_TO_CHANGE =
   "nothing to change — pass title, task, schedule, enabled, archived, unfurlLinks, unattendedGrants, or session";
 
-export const CRON_FIRE_NOTE_MAX_CHARS = 400;
+export const CRON_FIRE_NOTE_MAX_CHARS = 2000;
 
 export type ControlOk<T> = { ok: true } & T;
 export type ControlErr<C extends string> = { ok: false; code: C; message: string };

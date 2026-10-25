@@ -918,10 +918,10 @@ test("noteCron rejects empty, over-cap (counted in code points), and marker-forg
   assert.equal(blank.ok, false);
   assert.equal(blank.ok ? "" : blank.code, "bad_request");
 
-  const long = await control.noteCron(id, "x".repeat(401), claims("U1"));
+  const long = await control.noteCron(id, "x".repeat(2001), claims("U1"));
   assert.equal(long.ok, false);
   assert.equal(long.ok ? "" : long.code, "bad_request");
-  assert.match(long.ok ? "" : long.message, /401 chars.*cap is 400/);
+  assert.match(long.ok ? "" : long.message, /2001 chars.*cap is 2000/);
   assert.match(long.ok ? "" : long.message, /Files via the available Files API, verify success/);
   assert.match(long.ok ? "" : long.message, /put the file ID in the note/);
   assert.match(long.ok ? "" : long.message, /GET \/v1\/files\/:id\/content/);

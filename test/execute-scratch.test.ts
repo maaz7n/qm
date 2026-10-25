@@ -91,11 +91,12 @@ test("flag OFF: the execute surface is exactly the legacy one (no scope/durable,
     "background",
     "sandbox_id",
     "purpose",
+    "description",
     "timeout_seconds",
     "credentials",
     "retrySafe",
   ]);
-  assert.deepEqual(schemaRequired(execute!), ["command", "purpose"]);
+  assert.deepEqual(schemaRequired(execute!), ["command"]);
   await call(execute, { command: "echo hi", purpose: "Run test command" });
   assert.deepEqual(seen, [{ command: "echo hi", opts: undefined }]);
 });
@@ -109,6 +110,7 @@ test("flag ON: scope defaults to the durable scoped box; scratch is an explicit 
     "background",
     "sandbox_id",
     "purpose",
+    "description",
     "timeout_seconds",
     "credentials",
     "scope",
@@ -346,6 +348,7 @@ test("execute schema lists exact command credential handles", async () => {
     "background",
     "sandbox_id",
     "purpose",
+    "description",
     "timeout_seconds",
     "credentials",
     "retrySafe",
